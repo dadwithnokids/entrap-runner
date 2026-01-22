@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ENTRAP</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            background: #000;
+            overflow: hidden;
+        }
+        
+        #screen_container {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+        }
+        
+        #screen {
+            width: 100%;
+            height: 100%;
+            image-rendering: pixelated;
+            image-rendering: crisp-edges;
+        }
+    </style>
+</head>
+<body>
+    <div id="screen_container"></div>
+
+    <script src="libv86.js"></script>
+    <script>
+        window.addEventListener('load', function() {
+            var emulator = new V86Starter({
+                screen_container: document.getElementById("screen_container"),
+                bios: {
+                    url: "seabios.bin",
+                },
+                vga_bios: {
+                    url: "vgabios.bin",
+                },
+                hda: {
+                    url: "freedos722.img",
+                    async: false,
+                },
+                fda: {
+                    url: "ENTRAP.EXE",
+                },
+                boot_order: 0x132,
+                autostart: true,
+            });
+            
+            emulator.add_listener("emulator-started", function() {
+                setTimeout(function() {
+                    emulator.keyboard_send_text("A:\\ENTRAP.EXE\r");
+                }, 8000);
+            });
+        });
+    </script>
+</body>
+</html>
