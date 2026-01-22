@@ -3,60 +3,68 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ENTRAP Debugger</title>
+    <title>ENTRAP</title>
     <style>
         body { background-color: #000; margin: 0; padding: 0; height: 100vh; overflow: hidden; font-family: 'Courier New', monospace; color: #0f0; display: flex; justify-content: center; align-items: center; }
-        #screen_container { position: relative; width: 100%; height: 100%; display: flex; justify-content: center; align-items: center; }
-        canvas { max-width: 100vw; max-height: 100vh; object-fit: contain; image-rendering: pixelated; }
+        
+        #screen_container { 
+            position: relative; 
+            width: 100%; 
+            height: 100%; 
+            display: flex; 
+            justify-content: center; 
+            align-items: center; 
+            cursor: none; /* Hide default cursor when locked */
+        }
+        
+        canvas { 
+            max-width: 100%; 
+            max-height: 100%; 
+            object-fit: contain; 
+            image-rendering: pixelated; 
+        }
+
         #status { 
             position: absolute; top: 20px; left: 50%; transform: translateX(-50%); 
             background: rgba(0,0,0,0.9); padding: 15px; border: 2px solid #0f0; 
-            z-index: 999; text-align: left; min-width: 300px; font-weight: bold;
+            z-index: 999; text-align: center; min-width: 300px; font-weight: bold;
+            pointer-events: none;
+        }
+
+        #overlay {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            z-index: 50; display: none; /* Hidden by default */
         }
     </style>
 </head>
 <body>
 
     <div id="screen_container">
-        <div id="status">Page Loaded. Waiting for script...</div>
+        <div id="status">Page Loaded. Checking files...</div>
+        <div id="overlay"></div>
         <canvas id="screen"></canvas>
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/v86@latest/build/libv86.js"></script>
 
     <script>
-        // --- HELPER: WRITE TO SCREEN ---
         function log(msg) {
-            var el = document.getElementById("status");
-            el.innerHTML += "<br>> " + msg;
+            document.getElementById("status").innerText = msg;
             console.log(msg);
         }
 
-        // --- STEP 1: VERIFY JS IS RUNNING ---
-        log("Script started.");
-
         window.onload = async function() {
-            log("Window loaded.");
-
-            // --- STEP 2: CHECK LIBRARY ---
-            if (typeof V86 === 'undefined') {
-                log("ERROR: V86 Library failed to load!");
-                return;
-            }
-            log("V86 Library found.");
-
             try {
-                // --- STEP 3: CHECK FILES ---
-                log("Checking 'win95_chunk_aa'...");
-                
-                // Test fetch the first chunk to ensure it exists
-                let testFetch = await fetch("win95_chunk_aa");
-                if (!testFetch.ok) {
-                    throw new Error("Cannot find 'win95_chunk_aa'. Did you push the files to GitHub?");
+                // --- STEP 1: CHECK GAME ISO ---
+                log("Checking for 'entrap.iso'...");
+                // Note: File names are CASE SENSITIVE on GitHub!
+                let isoCheck = await fetch("entrap.iso");
+                if (!isoCheck.ok) {
+                    throw new Error("Game file missing! \nMake sure your file is named exactly 'entrap.iso' (lowercase) on GitHub.");
                 }
-                log("Chunk 'aa' found! Downloading rest...");
 
-                // Download all chunks
+                // --- STEP 2: LOAD CHUNKS ---
+                log("Loading Windows 95...");
                 var buffers = [];
                 var suffixes = ["aa","ab","ac","ad","ae","af","ag","ah","ai","aj","ak","al","am","an","ao","ap","aq","ar","as","at"];
                 
@@ -64,21 +72,19 @@
                     let filename = "win95_chunk_" + suffixes[i];
                     try {
                         let res = await fetch(filename);
-                        if (!res.ok) break; // Stop at last file
+                        if (!res.ok) break;
                         let blob = await res.arrayBuffer();
                         buffers.push(blob);
                     } catch (e) { break; }
                 }
 
-                if (buffers.length === 0) throw new Error("No chunk files found.");
-                log("Stitched " + buffers.length + " chunks.");
-
-                // Create Blob
+                if (buffers.length === 0) throw new Error("System chunks missing.");
+                
                 const finalBlob = new Blob(buffers);
                 const fileURL = URL.createObjectURL(finalBlob);
 
-                // --- STEP 4: START EMULATOR ---
-                log("Booting Emulator...");
+                // --- STEP 3: START EMULATOR ---
+                log("Booting... CLICK SCREEN TO CAPTURE MOUSE");
                 
                 var emulator = new V86({
                     screen_container: document.getElementById("screen_container"),
@@ -91,7 +97,11 @@
                     autostart: true
                 });
 
-                log("Emulator Running.");
+                // --- STEP 4: MOUSE LOCKING ---
+                // Clicking the screen locks the mouse to the emulator
+                document.getElementById("screen_container").addEventListener("click", function() {
+                    emulator.lock_mouse();
+                });
 
                 // --- STEP 5: AUTOMATION ---
                 var booted = false;
@@ -103,7 +113,7 @@
                         var seconds = 60;
                         var timer = setInterval(function() {
                             seconds--;
-                            document.getElementById("status").innerText = "Auto-launch in: " + seconds + "s";
+                            log("Auto-launch in: " + seconds + "s (Press ESC to release mouse)");
                             if (seconds <= 0) {
                                 clearInterval(timer);
                                 launchGame();
@@ -113,12 +123,13 @@
                 });
 
                 function launchGame() {
-                    document.getElementById("status").innerText = "Launching ENTRAP...";
+                    log("Launching ENTRAP...");
                     emulator.keyboard_send_scancodes([0x1D, 0x01]); // Ctrl+Esc
                     setTimeout(() => emulator.keyboard_send_scancodes([0x9D, 0x81]), 200);
                     setTimeout(() => {
                         emulator.keyboard_send_text("r");
                         setTimeout(() => {
+                            // Trying drive D: first
                             var cmd = "D:\\ENTRAPNT.EXE\n";
                             for(let i=0; i<cmd.length; i++) {
                                 setTimeout(() => emulator.keyboard_send_text(cmd[i]), i*100);
@@ -129,7 +140,7 @@
                 }
 
             } catch (err) {
-                log("CRITICAL ERROR: " + err.message);
+                log("ERROR: " + err.message);
                 document.getElementById("status").style.borderColor = "red";
                 document.getElementById("status").style.color = "red";
             }
