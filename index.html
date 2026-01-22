@@ -14,36 +14,22 @@
         body {
             background: #000;
             overflow: hidden;
-        }
-        
-        #screen_container {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100vw;
-            height: 100vh;
-        }
-        
-        #screen_container canvas {
-            width: 100%;
-            height: 100%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
         }
     </style>
 </head>
 <body>
-    <div id="screen_container"></div>
     <script src="https://unpkg.com/v86@latest/build/libv86.js"></script>
     <script>
         window.addEventListener('load', function() {
             console.log("Creating emulator...");
-            var canvas = document.createElement('canvas');
-            canvas.width = 1024;
-            canvas.height = 768;
-            document.getElementById("screen_container").appendChild(canvas);
+            
             var emulator = new V86({
                 memory_size: 32 * 1024 * 1024,
                 vga_memory_size: 8 * 1024 * 1024,
-                screen_container: document.getElementById("screen_container"),
                 bios: {
                     url: "seabios.bin",
                 },
@@ -60,8 +46,10 @@
                 boot_order: 0x132,
                 autostart: true,
             });
+            
             console.log("Emulator created");
             window.emulator = emulator;
+            
             emulator.add_listener("emulator-started", function() {
                 console.log("Emulator started!");
                 setTimeout(function() {
