@@ -33,7 +33,7 @@
     </style>
 </head>
 <body>
-    <div id="screen_container"></div>
+    <script src="./libv86.js"></script>
 
     <script src="libv86.js"></script>
     <script>
@@ -51,7 +51,7 @@
                     async: false,
                 },
                 fda: {
-                    url: "ENTRAP.EXE",
+                    url: "ENTRAPNT.exe",
                 },
                 boot_order: 0x132,
                 autostart: true,
@@ -59,7 +59,7 @@
             
             emulator.add_listener("emulator-started", function() {
                 setTimeout(function() {
-                    emulator.keyboard_send_text("A:\\ENTRAP.EXE\r");
+                    emulator.keyboard_send_text("A:\\ENTRAPNT.exe\r");
                 }, 8000);
             });
         });
