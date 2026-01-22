@@ -28,7 +28,7 @@
 <body>
     <div id="screen_container"></div>
 
-    <script src="https://unpkg.com/v86@2.3.11/build/libv86.js"></script>
+    <script src="https://unpkg.com/v86@2.3.11/build/libv86.js?v=2"></script>
     <script>
         window.addEventListener('load', function() {
             console.log("Starting v86 2.3.11...");
@@ -38,31 +38,3 @@
                 bios: {
                     url: "seabios.bin",
                 },
-                vga_bios: {
-                    url: "vgabios.bin",
-                },
-                hda: {
-                    url: "freedos722.img",
-                    async: false,
-                },
-                fda: {
-                    url: "ENTRAPNT.exe",
-                },
-                boot_order: 0x132,
-                memory_size: 32 * 1024 * 1024,
-                autostart: true,
-            });
-            
-            console.log("Emulator created");
-            window.emulator = emulator;
-            
-            emulator.add_listener("emulator-started", function() {
-                console.log("Emulator started!");
-                setTimeout(function() {
-                    emulator.keyboard_send_text("A:\\ENTRAPNT.exe\r");
-                }, 8000);
-            });
-        });
-    </script>
-</body>
-</html>
