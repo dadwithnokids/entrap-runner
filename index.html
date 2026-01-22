@@ -5,84 +5,87 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>ENTRAP</title>
     <style>
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-        body { background: #000; overflow: hidden; }
-        /* Force the canvas to fill the screen */
-        #screen_container { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; }
-        canvas { width: 100% !important; height: 100% !important; image-rendering: pixelated; }
+        body {
+            background-color: #000;
+            margin: 0;
+            padding: 0;
+            height: 100vh;
+            width: 100vw;
+            overflow: hidden;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        /* This is the container v86 looks for */
+        #screen_container {
+            position: relative;
+            background-color: #000;
+            /* 4:3 Aspect Ratio for Win95 */
+            width: 800px;
+            height: 600px; 
+            max-width: 100vw;
+        }
+
+        /* The canvas inside must be explicit */
+        #screen_container canvas {
+            display: block;
+            width: 100%;
+            height: 100%;
+        }
+
+        /* The text layer (required by v86 even if empty) */
+        .phone_keyboard { display: none; }
     </style>
 </head>
 <body>
-    <div id="screen_container"></div>
+
+    <div id="screen_container">
+        <div style="white-space: pre; font: 14px monospace; line-height: 14px"></div>
+        <canvas></canvas>
+    </div>
 
     <script src="https://unpkg.com/v86@latest/build/libv86.js"></script>
 
     <script>
-        window.addEventListener('load', function() {
-            console.log("Initializing Windows 95 Emulator...");
+        window.onload = function() {
+            console.log("Initializing Emulator...");
 
-            // 1. Setup the emulator
             var emulator = new V86({
+                // We pass the container, but we ensured the canvas exists inside it above
                 screen_container: document.getElementById("screen_container"),
-                memory_size: 128 * 1024 * 1024, // 128MB RAM for smooth play
-                vga_memory_size: 8 * 1024 * 1024,
                 
-                // BIOS Files (Standard PC BIOS)
+                // Hardware Specs
+                memory_size: 128 * 1024 * 1024,
+                vga_memory_size: 8 * 1024 * 1024,
+
+                // BIOS Files (Local in your repo)
                 bios: { url: "seabios.bin" },
                 vga_bios: { url: "vgabios.bin" },
 
-                // Windows 95 OS Image (Using a reliable public mirror)
-                // Note: This is ~200MB. It will take time to load on first visit.
+                // Windows 95 Drive (External reliable mirror)
+                // This is a ~200MB download on first load!
                 hda: { 
                     url: "https://github.com/copy/images/raw/master/windows95.img",
                     async: true 
                 },
 
-                // Your Game CD (The ISO you just uploaded)
+                // Your Game CD (Local in your repo)
                 cdrom: { 
                     url: "entrap.iso",
                     async: true
                 },
 
-                autostart: true,
+                autostart: true
             });
 
-            // 2. Automation Script
-            // We wait for Windows to boot, then use keyboard shortcuts to run the game
+            // --- Automation Script ---
             var booted = false;
             
             emulator.add_listener("screen-set-mode", function(is_graphical) {
-                // When the screen switches to graphical mode, Windows is starting
                 if(is_graphical && !booted) {
-                    console.log("Windows 95 graphical interface detected...");
+                    console.log("Graphical mode detected (Windows booting)...");
                     booted = true;
 
-                    // Wait 45 seconds for the Desktop to fully load
-                    setTimeout(function() {
-                        console.log("Attempting to launch game...");
-                        
-                        // Step 1: Open 'Run' dialog (Ctrl+Esc opens Start, then R)
-                        // We use a small delay between keys to ensure Windows catches them
-                        
-                        // Press Ctrl+Esc (Start Menu)
-                        emulator.keyboard_send_scancodes([0x1D, 0x01]); // Ctrl + Esc down
-                        setTimeout(() => emulator.keyboard_send_scancodes([0x9D, 0x81]), 100); // Up
-                        
-                        setTimeout(function() {
-                            // Press 'R' for Run
-                            emulator.keyboard_send_text("r");
-                            
-                            setTimeout(function() {
-                                // Type the path to the game on the CD Drive (D:)
-                                // We assume D: because C: is the OS
-                                emulator.keyboard_send_text("D:\\ENTRAPNT.EXE\n");
-                            }, 1000);
-                        }, 1000);
-                        
-                    }, 45000); // 45 second boot wait
-                }
-            });
-        });
-    </script>
-</body>
-</html>
+                    // Wait 45 seconds for Windows to reach Desktop
+                    setTimeout
