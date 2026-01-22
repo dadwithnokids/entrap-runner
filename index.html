@@ -5,7 +5,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>ENTRAP</title>
     <style>
-        /* 1. Make the background pure black and hide scrollbars */
         body {
             background-color: #000;
             margin: 0;
@@ -20,41 +19,36 @@
             color: #0f0;
         }
 
-        /* 2. Container that forces the screen to fit the window */
         #screen_container {
-            position: relative;
-            /* This ensures it never goes off-screen */
-            max-width: 100vw;
-            max-height: 100vh;
-            /* Enforce standard 4:3 Retro Aspect Ratio */
-            aspect-ratio: 4 / 3;
-            /* If the screen is wide, height controls size. If tall, width controls size. */
-            height: 100%; 
-            width: auto;
-            background-color: #000;
-        }
-
-        /* 3. Make the emulator canvas fill that container perfectly */
-        #screen_container canvas {
-            display: block;
+            /* This ensures the container takes up the whole screen but doesn't overflow */
             width: 100%;
             height: 100%;
-            /* Keeps pixels sharp (retro look) instead of blurry */
-            image-rendering: pixelated;
+            display: flex;
+            align-items: center;
+            justify-content: center;
         }
 
-        /* Status Text Styling (Hidden after boot) */
+        canvas {
+            /* This forces the emulator to fit INSIDE the window, maintaining ratio */
+            max-width: 100%;
+            max-height: 100%;
+            object-fit: contain; 
+            image-rendering: pixelated;
+            box-shadow: 0 0 20px rgba(0, 255, 0, 0.2);
+        }
+
         #status {
             position: absolute;
-            top: 50%;
+            top: 20px;
             left: 50%;
-            transform: translate(-50%, -50%);
+            transform: translateX(-50%);
             text-align: center;
             background: rgba(0, 0, 0, 0.8);
-            padding: 20px;
+            padding: 10px 20px;
             border: 1px solid #0f0;
             z-index: 10;
-            pointer-events: none; /* Lets clicks pass through */
+            border-radius: 4px;
+            pointer-events: none;
         }
     </style>
 </head>
@@ -62,59 +56,46 @@
 
     <div id="screen_container">
         <div id="status">Initializing...</div>
-        <div style="white-space: pre; font: 14px monospace; line-height: 14px"></div>
-        <canvas></canvas>
+        <div id="emulator_target"></div>
     </div>
 
     <script src="https://unpkg.com/v86@latest/build/libv86.js"></script>
 
     <script>
-        // --- CONFIGURATION ---
         const CHUNK_PREFIX = "win95_chunk_";
         
-        // --- AUTO-START LOGIC ---
         window.onload = async function() {
             var statusElement = document.getElementById("status");
+            var container = document.getElementById("screen_container");
 
             try {
-                // 1. Fetch and Stitch Chunks Automatically
-                statusElement.innerText = "Loading System...";
-                var totalParts = 0;
+                // --- STEP 1: LOAD CHUNKS ---
+                statusElement.innerText = "Loading System Files...";
                 var buffers = [];
-                // Check chunks 'aa' through 'at'
+                // Scanning for chunks 'aa' through 'at'
                 var suffixes = ["aa","ab","ac","ad","ae","af","ag","ah","ai","aj","ak","al","am","an","ao","ap","aq","ar","as","at"]; 
                 
                 for (let i = 0; i < suffixes.length; i++) {
-                    let filename = CHUNK_PREFIX + suffixes[i];
-                    
                     try {
-                        let response = await fetch(filename);
-                        if (!response.ok) break; 
-                        
-                        // Optional: Update text to show progress (or keep it clean)
-                        // statusElement.innerText = "Loading part: " + suffixes[i];
+                        let response = await fetch(CHUNK_PREFIX + suffixes[i]);
+                        if (!response.ok) break;
                         let blob = await response.arrayBuffer();
                         buffers.push(blob);
-                        totalParts++;
-                    } catch (e) {
-                        break;
-                    }
+                    } catch (e) { break; }
                 }
 
-                if (totalParts === 0) {
-                    throw new Error("No system files found.");
-                }
+                if (buffers.length === 0) throw new Error("System files missing.");
 
-                // Merge chunks
+                // Create the Windows 95 Hard Drive in memory
                 const finalBlob = new Blob(buffers);
                 const fileURL = URL.createObjectURL(finalBlob);
 
-                // 2. Start Emulator Immediately
+                // --- STEP 2: START EMULATOR ---
                 statusElement.innerText = "Booting Windows 95...";
                 
                 var emulator = new V86({
-                    screen_container: document.getElementById("screen_container"),
-                    memory_size: 64 * 1024 * 1024,
+                    screen_container: container, // Use the main container
+                    memory_size: 96 * 1024 * 1024, // Bumped RAM slightly
                     vga_memory_size: 8 * 1024 * 1024,
                     bios: { url: "./seabios.bin" },
                     vga_bios: { url: "./vgabios.bin" },
@@ -123,38 +104,55 @@
                     autostart: true
                 });
 
-                // 3. Hide Text When Ready
-                emulator.add_listener("emulator-ready", function() {
-                    // Hide status after 2 seconds so they see the boot screen
-                    setTimeout(function() { 
-                        statusElement.style.display = "none"; 
-                    }, 2000);
-                });
-
-                // 4. Automation: Wait for Desktop -> Run Game
+                // --- STEP 3: AUTOMATION & COUNTDOWN ---
                 var booted = false;
+                
                 emulator.add_listener("screen-set-mode", function(is_graphical) {
                     if(is_graphical && !booted) {
                         booted = true;
-                        console.log("Graphical mode detected (Windows Starting)...");
                         
-                        // Wait 45 seconds for desktop to load, then type commands
-                        setTimeout(function() {
-                            console.log("Launching Game...");
-                            // Open Run Dialog
-                            emulator.keyboard_send_scancodes([0x1D, 0x01]); // Ctrl + Esc
-                            setTimeout(() => emulator.keyboard_send_scancodes([0x9D, 0x81]), 100);
+                        // Start a visible countdown so you know it's working
+                        var secondsLeft = 60; // Wait 60s for full boot
+                        var countdown = setInterval(function() {
+                            secondsLeft--;
+                            statusElement.innerText = "Windows Booting... Auto-launch in " + secondsLeft + "s";
                             
-                            setTimeout(function() {
-                                emulator.keyboard_send_text("r");
-                                setTimeout(function() {
-                                    // Type D:\ENTRAPNT.EXE and hit Enter
-                                    emulator.keyboard_send_text("D:\\ENTRAPNT.EXE\n");
-                                }, 1000);
-                            }, 1000);
-                        }, 45000); 
+                            if (secondsLeft <= 0) {
+                                clearInterval(countdown);
+                                launchGame();
+                            }
+                        }, 1000);
                     }
                 });
+
+                function launchGame() {
+                    statusElement.innerText = "Launching ENTRAP...";
+                    
+                    // 1. Open Run Dialog (Ctrl + Esc, then R)
+                    // We send these slowly to make sure Windows catches them
+                    emulator.keyboard_send_scancodes([0x1D, 0x01]); // Ctrl + Esc down
+                    setTimeout(() => emulator.keyboard_send_scancodes([0x9D, 0x81]), 200); // Release
+                    
+                    setTimeout(function() {
+                        emulator.keyboard_send_text("r"); // Press R
+                        
+                        setTimeout(function() {
+                            // 2. Type command slowly character by character
+                            var cmd = "D:\\ENTRAPNT.EXE\n";
+                            var i = 0;
+                            var typing = setInterval(function() {
+                                if (i < cmd.length) {
+                                    emulator.keyboard_send_text(cmd.charAt(i));
+                                    i++;
+                                } else {
+                                    clearInterval(typing);
+                                    // Hide status after command is sent
+                                    setTimeout(() => { statusElement.style.display = 'none'; }, 2000);
+                                }
+                            }, 100); // 100ms per key
+                        }, 1000);
+                    }, 1000);
+                }
 
             } catch (err) {
                 statusElement.innerText = "Error: " + err.message;
