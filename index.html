@@ -41,22 +41,31 @@
             left: 50%;
             transform: translate(-50%, -50%);
             text-align: center;
-            background: rgba(0, 0, 0, 0.8);
+            background: rgba(0, 0, 0, 0.9);
             padding: 20px;
             border: 1px solid #0f0;
             z-index: 10;
+            min-width: 300px;
         }
     </style>
 </head>
 <body>
 
     <div id="screen_container">
-        <div id="status">Initializing...</div>
+        <div id="status">Initializing Debug Mode...</div>
         <div style="white-space: pre; font: 14px monospace; line-height: 14px"></div>
         <canvas></canvas>
     </div>
 
-    <script src="https://unpkg.com/v86@latest/build/libv86.js"></script>
+    <script>
+        window.onerror = function(msg, url, line) {
+            var statusBox = document.getElementById('status');
+            statusBox.innerHTML += "<br><br><span style='color:red; background: #220000; padding: 2px;'>ERROR: " + msg + "</span>";
+            return false;
+        };
+    </script>
+
+    <script src="https://cdn.jsdelivr.net/npm/v86@latest/build/libv86.js"></script>
 
     <script>
         window.onload = function() {
@@ -67,43 +76,78 @@
                 statusElement.innerText = msg;
             }
 
-            updateStatus("Locating system files...");
+            updateStatus("Step 1: Script loaded. Finding files...");
 
-            var emulator = new V86({
-                screen_container: document.getElementById("screen_container"),
-                memory_size: 64 * 1024 * 1024, 
-                vga_memory_size: 8 * 1024 * 1024,
+            try {
+                var emulator = new V86({
+                    screen_container: document.getElementById("screen_container"),
+                    memory_size: 64 * 1024 * 1024, 
+                    vga_memory_size: 8 * 1024 * 1024,
 
-                // CHANGED: Pointing to YOUR local files to fix the security error
-                bios: { url: "./seabios.bin" },
-                vga_bios: { url: "./vgabios.bin" },
+                    // Pointing to YOUR local files
+                    bios: { url: "./seabios.bin" },
+                    vga_bios: { url: "./vgabios.bin" },
 
-                // Windows 95 Image (External)
-                hda: { 
-                    url: "https://github.com/copy/images/raw/master/windows95.img",
-                    async: true 
-                },
+                    // Windows 95 Image (External)
+                    hda: { 
+                        url: "https://github.com/copy/images/raw/master/windows95.img",
+                        async: true 
+                    },
 
-                // Your Game ISO (Local)
-                cdrom: { 
-                    url: "./entrap.iso",
-                    async: true
-                },
+                    // Your Game ISO (Local)
+                    cdrom: { 
+                        url: "./entrap.iso",
+                        async: true
+                    },
 
-                autostart: true
-            });
+                    autostart: true
+                });
 
-            // --- Download Tracker ---
-            var current_download = "";
-            
-            emulator.add_listener("download-progress", function(e) {
-                if (e.file_name.includes("windows95")) current_download = "Windows 95";
-                else if (e.file_name.includes("entrap")) current_download = "Game Files";
-                else current_download = "System Files";
+                // --- Download Tracker ---
+                emulator.add_listener("download-progress", function(e) {
+                    var current_download = "System File";
+                    if (e.file_name.includes("windows95")) current_download = "Windows 95";
+                    else if (e.file_name.includes("entrap")) current_download = "Game ISO";
+                    
+                    var percent = 0;
+                    if (e.total > 0) percent = Math.floor((e.loaded / e.total) * 100);
+                    
+                    updateStatus("Downloading " + current_download + ": " + percent + "%");
+                });
 
-                var percent = 0;
-                if (e.total > 0) {
-                    percent = Math.floor((e.loaded / e.total) * 100);
-                }
-                
-                updateStatus("Downloading "
+                // --- Boot Handler ---
+                emulator.add_listener("emulator-ready", function() {
+                    updateStatus("Booting Windows 95...");
+                    setTimeout(function() {
+                        statusElement.style.display = "none";
+                    }, 5000);
+                });
+
+                var booted = false;
+                emulator.add_listener("screen-set-mode", function(is_graphical) {
+                    if(is_graphical && !booted) {
+                        booted = true;
+                        console.log("Graphical mode detected...");
+                        
+                        // Automation sequence
+                        setTimeout(function() {
+                            // Open Start Menu -> Run
+                            emulator.keyboard_send_scancodes([0x1D, 0x01]); 
+                            setTimeout(() => emulator.keyboard_send_scancodes([0x9D, 0x81]), 100);
+                            
+                            setTimeout(function() {
+                                emulator.keyboard_send_text("r");
+                                setTimeout(function() {
+                                    emulator.keyboard_send_text("D:\\ENTRAPNT.EXE\n");
+                                }, 1000);
+                            }, 1000);
+                        }, 45000); 
+                    }
+                });
+            } catch (err) {
+                updateStatus("CRITICAL ERROR: " + err.message);
+            }
+        };
+    </script>
+</body>
+</html>
