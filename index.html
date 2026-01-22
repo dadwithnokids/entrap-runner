@@ -34,7 +34,7 @@
             height: 100%;
         }
 
-        /* The Status Text */
+        /* Status Overlay */
         #status {
             position: absolute;
             top: 50%;
@@ -47,12 +47,29 @@
             z-index: 10;
             min-width: 300px;
         }
+
+        /* The Start Button */
+        #start_btn {
+            background: #0f0;
+            color: #000;
+            border: none;
+            padding: 10px 20px;
+            font-family: inherit;
+            font-weight: bold;
+            cursor: pointer;
+            font-size: 16px;
+            margin-top: 10px;
+        }
+        #start_btn:hover { background: #fff; }
     </style>
 </head>
 <body>
 
     <div id="screen_container">
-        <div id="status">Initializing Debug Mode...</div>
+        <div id="status">
+            Click to Initialize System<br><br>
+            <button id="start_btn">START SYSTEM</button>
+        </div>
         <div style="white-space: pre; font: 14px monospace; line-height: 14px"></div>
         <canvas></canvas>
     </div>
@@ -68,15 +85,19 @@
     <script src="https://cdn.jsdelivr.net/npm/v86@latest/build/libv86.js"></script>
 
     <script>
-        window.onload = function() {
+        // Wait for user interaction to avoid AudioContext and Autoplay blocks
+        document.getElementById("start_btn").addEventListener("click", function() {
             var statusElement = document.getElementById("status");
+            var btn = document.getElementById("start_btn");
+            
+            // Remove button and show loading text
+            btn.style.display = "none";
+            statusElement.innerText = "Step 1: Initialization...";
 
             function updateStatus(msg) {
                 console.log(msg);
                 statusElement.innerText = msg;
             }
-
-            updateStatus("Step 1: Script loaded. Finding files...");
 
             try {
                 var emulator = new V86({
@@ -84,20 +105,16 @@
                     memory_size: 64 * 1024 * 1024, 
                     vga_memory_size: 8 * 1024 * 1024,
 
-                    // Pointing to YOUR local files
+                    // LOCAL FILES (Your Repo)
                     bios: { url: "./seabios.bin" },
                     vga_bios: { url: "./vgabios.bin" },
+                    cdrom: { url: "./entrap.iso", async: true },
 
-                    // Windows 95 Image (External)
+                    // EXTERNAL FILE (Fixed Direct Link)
+                    // We use the "raw" link to avoid the redirect loop
                     hda: { 
-                        url: "https://github.com/copy/images/raw/master/windows95.img",
+                        url: "https://raw.githubusercontent.com/copy/images/master/windows95.img",
                         async: true 
-                    },
-
-                    // Your Game ISO (Local)
-                    cdrom: { 
-                        url: "./entrap.iso",
-                        async: true
                     },
 
                     autostart: true
@@ -120,7 +137,7 @@
                     updateStatus("Booting Windows 95...");
                     setTimeout(function() {
                         statusElement.style.display = "none";
-                    }, 5000);
+                    }, 2000);
                 });
 
                 var booted = false;
@@ -147,7 +164,7 @@
             } catch (err) {
                 updateStatus("CRITICAL ERROR: " + err.message);
             }
-        };
+        });
     </script>
 </body>
 </html>
