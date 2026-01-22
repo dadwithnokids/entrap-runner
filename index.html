@@ -5,100 +5,52 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>ENTRAP</title>
     <style>
-        body {
-            background-color: #111;
-            margin: 0;
-            padding: 0;
-            height: 100vh;
-            width: 100vw;
-            overflow: hidden;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-family: 'Courier New', Courier, monospace;
-            color: #0f0; 
-        }
-        
-        #screen_container {
-            position: relative;
-            width: 800px;
-            height: 600px; 
-            max-width: 100vw;
-            background-color: #000;
-            border: 2px solid #333;
-        }
-
-        #screen_container canvas {
-            display: block;
-            width: 100%;
-            height: 100%;
-        }
-
-        #status {
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            text-align: center;
-            background: rgba(0, 0, 0, 0.9);
-            padding: 20px;
-            border: 1px solid #0f0;
-            z-index: 10;
-            min-width: 300px;
-        }
-
-        #start_btn {
-            background: #0f0;
-            color: #000;
-            border: none;
-            padding: 10px 20px;
-            font-family: inherit;
-            font-weight: bold;
-            cursor: pointer;
-            font-size: 16px;
-            margin-top: 10px;
-        }
-        #start_btn:hover { background: #fff; }
+        body { background-color: #111; margin: 0; padding: 0; height: 100vh; overflow: hidden; display: flex; align-items: center; justify-content: center; font-family: 'Courier New', monospace; color: #0f0; }
+        #screen_container { position: relative; width: 800px; height: 600px; background-color: #000; border: 2px solid #333; }
+        #screen_container canvas { display: block; width: 100%; height: 100%; }
+        #status { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); text-align: center; background: rgba(0, 0, 0, 0.9); padding: 20px; border: 1px solid #0f0; z-index: 10; min-width: 300px; }
+        #start_btn { background: #0f0; color: #000; border: none; padding: 10px 20px; font-weight: bold; cursor: pointer; font-size: 16px; margin-top: 10px; }
     </style>
 </head>
 <body>
 
     <div id="screen_container">
         <div id="status">
-            Click to Initialize System<br><br>
-            <button id="start_btn">START SYSTEM</button>
+            System Ready.<br><br>
+            <button id="start_btn">START DIAGNOSTIC</button>
         </div>
         <div style="white-space: pre; font: 14px monospace; line-height: 14px"></div>
         <canvas></canvas>
     </div>
 
-    <script>
-        window.onerror = function(msg, url, line) {
-            var statusBox = document.getElementById('status');
-            statusBox.innerHTML += "<br><br><span style='color:red; background: #220000; padding: 2px;'>ERROR: " + msg + "</span>";
-            return false;
-        };
-    </script>
-
-    <script src="https://cdn.jsdelivr.net/npm/v86@latest/build/libv86.js"></script>
+    <script src="https://unpkg.com/v86@latest/build/libv86.js"></script>
 
     <script>
-        document.getElementById("start_btn").addEventListener("click", function() {
+        // 2. Setup the "Click" Handler
+        var btn = document.getElementById("start_btn");
+        
+        btn.onclick = function() {
+            // ALERT 1: Prove the button works
+            alert("Step 1: Button Clicked. Checking emulator...");
+
             var statusElement = document.getElementById("status");
-            var btn = document.getElementById("start_btn");
-            
             btn.style.display = "none";
-            statusElement.innerText = "Step 1: Initialization...";
+            statusElement.innerText = "Initializing...";
 
-            function updateStatus(msg) {
-                console.log(msg);
-                statusElement.innerText = msg;
+            // Check if V86 loaded
+            if (typeof V86 === 'undefined') {
+                alert("CRITICAL ERROR: The 'V86' library failed to load.\n\nYour browser or network is blocking the script from 'unpkg.com'.");
+                statusElement.innerText = "Error: Library Blocked";
+                return;
             }
 
             try {
+                // ALERT 2: Confirm we are starting the engine
+                // alert("Step 2: Starting Emulator Engine..."); // Uncomment if needed
+
                 var emulator = new V86({
                     screen_container: document.getElementById("screen_container"),
-                    memory_size: 64 * 1024 * 1024, 
+                    memory_size: 64 * 1024 * 1024,
                     vga_memory_size: 8 * 1024 * 1024,
 
                     // LOCAL FILES
@@ -106,52 +58,44 @@
                     vga_bios: { url: "./vgabios.bin" },
                     cdrom: { url: "./entrap.iso", async: true },
 
-                    // SYSTEM DRIVE (PROXY ENABLED)
-                    // We wrap your link in a proxy to bypass the security block
+                    // NEW SOURCE: Internet Archive (Direct Link)
+                    // This bypasses the GitHub blocks and Proxy issues
                     hda: { 
-                        url: "https://corsproxy.io/?https://github.com/dadwithnokids/entrap-runner/releases/download/v1.0/win95.img",
+                        url: "https://archive.org/download/windows-95-img/windows95.img",
                         async: true 
                     },
 
                     autostart: true
                 });
 
-                // --- Download Tracker ---
+                // Download Tracker
                 emulator.add_listener("download-progress", function(e) {
                     var current_download = "System File";
-                    // The proxy changes the name slightly, so we just check generally
-                    if (e.file_name.includes("win95") || e.file_name.includes("proxy")) {
-                        current_download = "Windows 95";
-                    } else if (e.file_name.includes("entrap")) {
-                        current_download = "Game ISO";
-                    }
+                    if (e.file_name.includes("windows95")) current_download = "Windows 95";
+                    else if (e.file_name.includes("entrap")) current_download = "Game ISO";
                     
                     var percent = 0;
                     if (e.total > 0) percent = Math.floor((e.loaded / e.total) * 100);
                     
-                    updateStatus("Downloading " + current_download + ": " + percent + "%");
+                    // Update text on screen
+                    statusElement.innerText = "Downloading " + current_download + ": " + percent + "%";
                 });
 
-                // --- Boot Handler ---
+                // Boot Tracker
                 emulator.add_listener("emulator-ready", function() {
-                    updateStatus("Booting Windows 95...");
-                    setTimeout(function() {
-                        statusElement.style.display = "none";
-                    }, 2000);
+                    statusElement.innerText = "Booting Windows 95...";
+                    setTimeout(function() { statusElement.style.display = "none"; }, 2000);
                 });
 
+                // Automation
                 var booted = false;
                 emulator.add_listener("screen-set-mode", function(is_graphical) {
                     if(is_graphical && !booted) {
                         booted = true;
                         console.log("Graphical mode detected...");
-                        
-                        // Automation sequence
                         setTimeout(function() {
-                            // Open Start Menu -> Run
                             emulator.keyboard_send_scancodes([0x1D, 0x01]); 
                             setTimeout(() => emulator.keyboard_send_scancodes([0x9D, 0x81]), 100);
-                            
                             setTimeout(function() {
                                 emulator.keyboard_send_text("r");
                                 setTimeout(function() {
@@ -161,6 +105,11 @@
                         }, 45000); 
                     }
                 });
+
             } catch (err) {
-                updateStatus("CRITICAL ERROR: " + err.message);
+                alert("CRITICAL ERROR: " + err.message);
             }
+        };
+    </script>
+</body>
+</html>
