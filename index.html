@@ -5,20 +5,63 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>ENTRAP</title>
     <style>
-        body { background-color: #111; margin: 0; padding: 0; height: 100vh; overflow: hidden; display: flex; align-items: center; justify-content: center; font-family: 'Courier New', monospace; color: #0f0; }
-        #screen_container { position: relative; width: 800px; height: 600px; background-color: #000; border: 2px solid #333; }
-        #screen_container canvas { display: block; width: 100%; height: 100%; }
-        #status { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); text-align: center; background: rgba(0, 0, 0, 0.9); padding: 20px; border: 1px solid #0f0; z-index: 10; min-width: 300px; }
-        #start_btn { background: #0f0; color: #000; border: none; padding: 10px 20px; font-weight: bold; cursor: pointer; font-size: 16px; margin-top: 10px; }
+        /* 1. Make the background pure black and hide scrollbars */
+        body {
+            background-color: #000;
+            margin: 0;
+            padding: 0;
+            height: 100vh;
+            width: 100vw;
+            overflow: hidden;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-family: 'Courier New', monospace;
+            color: #0f0;
+        }
+
+        /* 2. Container that forces the screen to fit the window */
+        #screen_container {
+            position: relative;
+            /* This ensures it never goes off-screen */
+            max-width: 100vw;
+            max-height: 100vh;
+            /* Enforce standard 4:3 Retro Aspect Ratio */
+            aspect-ratio: 4 / 3;
+            /* If the screen is wide, height controls size. If tall, width controls size. */
+            height: 100%; 
+            width: auto;
+            background-color: #000;
+        }
+
+        /* 3. Make the emulator canvas fill that container perfectly */
+        #screen_container canvas {
+            display: block;
+            width: 100%;
+            height: 100%;
+            /* Keeps pixels sharp (retro look) instead of blurry */
+            image-rendering: pixelated;
+        }
+
+        /* Status Text Styling (Hidden after boot) */
+        #status {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            text-align: center;
+            background: rgba(0, 0, 0, 0.8);
+            padding: 20px;
+            border: 1px solid #0f0;
+            z-index: 10;
+            pointer-events: none; /* Lets clicks pass through */
+        }
     </style>
 </head>
 <body>
 
     <div id="screen_container">
-        <div id="status">
-            System Ready.<br><br>
-            <button id="start_btn">START SYSTEM</button>
-        </div>
+        <div id="status">Initializing...</div>
         <div style="white-space: pre; font: 14px monospace; line-height: 14px"></div>
         <canvas></canvas>
     </div>
@@ -27,22 +70,18 @@
 
     <script>
         // --- CONFIGURATION ---
-        // This looks for files named win95_chunk_aa, win95_chunk_ab, etc.
         const CHUNK_PREFIX = "win95_chunk_";
         
-        var btn = document.getElementById("start_btn");
-        var statusElement = document.getElementById("status");
-
-        btn.onclick = async function() {
-            btn.style.display = "none";
-            statusElement.innerText = "Initializing Loader...";
+        // --- AUTO-START LOGIC ---
+        window.onload = async function() {
+            var statusElement = document.getElementById("status");
 
             try {
-                // 1. Fetch and Stitch Chunks
-                statusElement.innerText = "Downloading System Chunks...";
+                // 1. Fetch and Stitch Chunks Automatically
+                statusElement.innerText = "Loading System...";
                 var totalParts = 0;
                 var buffers = [];
-                // We check up to 20 chunks ('at'). If you have more, add 'au', 'av', etc.
+                // Check chunks 'aa' through 'at'
                 var suffixes = ["aa","ab","ac","ad","ae","af","ag","ah","ai","aj","ak","al","am","an","ao","ap","aq","ar","as","at"]; 
                 
                 for (let i = 0; i < suffixes.length; i++) {
@@ -50,9 +89,10 @@
                     
                     try {
                         let response = await fetch(filename);
-                        if (!response.ok) break; // Stop if we run out of chunks
+                        if (!response.ok) break; 
                         
-                        statusElement.innerText = "Fetching part: " + filename;
+                        // Optional: Update text to show progress (or keep it clean)
+                        // statusElement.innerText = "Loading part: " + suffixes[i];
                         let blob = await response.arrayBuffer();
                         buffers.push(blob);
                         totalParts++;
@@ -62,16 +102,14 @@
                 }
 
                 if (totalParts === 0) {
-                    throw new Error("No chunks found! Please ensure win95_chunk_aa is uploaded.");
+                    throw new Error("No system files found.");
                 }
 
-                statusElement.innerText = "Stitching " + totalParts + " chunks...";
-                
-                // Merge chunks into one blob
+                // Merge chunks
                 const finalBlob = new Blob(buffers);
                 const fileURL = URL.createObjectURL(finalBlob);
 
-                // 2. Start Emulator with Local Blob
+                // 2. Start Emulator Immediately
                 statusElement.innerText = "Booting Windows 95...";
                 
                 var emulator = new V86({
@@ -81,28 +119,36 @@
                     bios: { url: "./seabios.bin" },
                     vga_bios: { url: "./vgabios.bin" },
                     cdrom: { url: "./entrap.iso", async: true },
-                    
-                    // We load the stitched file from browser memory
                     hda: { url: fileURL, async: true },
                     autostart: true
                 });
 
-                // 3. Automation
+                // 3. Hide Text When Ready
                 emulator.add_listener("emulator-ready", function() {
-                    setTimeout(function() { statusElement.style.display = "none"; }, 2000);
+                    // Hide status after 2 seconds so they see the boot screen
+                    setTimeout(function() { 
+                        statusElement.style.display = "none"; 
+                    }, 2000);
                 });
 
+                // 4. Automation: Wait for Desktop -> Run Game
                 var booted = false;
                 emulator.add_listener("screen-set-mode", function(is_graphical) {
                     if(is_graphical && !booted) {
                         booted = true;
-                        console.log("Graphical mode detected...");
+                        console.log("Graphical mode detected (Windows Starting)...");
+                        
+                        // Wait 45 seconds for desktop to load, then type commands
                         setTimeout(function() {
-                            emulator.keyboard_send_scancodes([0x1D, 0x01]); 
+                            console.log("Launching Game...");
+                            // Open Run Dialog
+                            emulator.keyboard_send_scancodes([0x1D, 0x01]); // Ctrl + Esc
                             setTimeout(() => emulator.keyboard_send_scancodes([0x9D, 0x81]), 100);
+                            
                             setTimeout(function() {
                                 emulator.keyboard_send_text("r");
                                 setTimeout(function() {
+                                    // Type D:\ENTRAPNT.EXE and hit Enter
                                     emulator.keyboard_send_text("D:\\ENTRAPNT.EXE\n");
                                 }, 1000);
                             }, 1000);
@@ -111,8 +157,8 @@
                 });
 
             } catch (err) {
-                alert("ERROR: " + err.message);
-                statusElement.innerText = "Failed.";
+                statusElement.innerText = "Error: " + err.message;
+                statusElement.style.color = "red";
             }
         };
     </script>
