@@ -33,25 +33,25 @@
     </style>
 </head>
 <body>
-    <script src="https://unpkg.com/v86@latest/build/libv86.js"></script>
+    <div id="screen_container"></div>
 
-    <script src="libv86.js"></script>
+    <script src="https://unpkg.com/v86@latest/build/libv86.js"></script>
     <script>
         window.addEventListener('load', function() {
             var emulator = new V86({
                 screen_container: document.getElementById("screen_container"),
                 bios: {
-                    url: "seabios.bin",
+                    url: "https://dadwithnokids.github.io/entrap-runner/seabios.bin",
                 },
                 vga_bios: {
-                    url: "vgabios.bin",
+                    url: "https://dadwithnokids.github.io/entrap-runner/vgabios.bin",
                 },
                 hda: {
-                    url: "freedos722.img",
+                    url: "https://dadwithnokids.github.io/entrap-runner/freedos722.img",
                     async: false,
                 },
                 fda: {
-                    url: "ENTRAPNT.exe",
+                    url: "https://dadwithnokids.github.io/entrap-runner/ENTRAPNT.exe",
                 },
                 boot_order: 0x132,
                 autostart: true,
