@@ -14,17 +14,18 @@
         body {
             background: #000;
             overflow: hidden;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
         }
         
         #screen_container {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100vw;
-            height: 100vh;
+            width: 100%;
+            height: 100%;
         }
         
-        #screen {
+        canvas {
             width: 100%;
             height: 100%;
             image-rendering: pixelated;
@@ -33,7 +34,9 @@
     </style>
 </head>
 <body>
-    <div id="screen_container"></div>
+    <div id="screen_container">
+        <canvas></canvas>
+    </div>
 
     <script src="https://unpkg.com/v86@latest/build/libv86.js"></script>
     <script>
