@@ -23,55 +23,45 @@
             width: 100vw;
             height: 100vh;
         }
-        
-        #screen_container canvas {
-            width: 100% !important;
-            height: 100% !important;
-            image-rendering: pixelated;
-            image-rendering: crisp-edges;
-        }
     </style>
 </head>
 <body>
     <div id="screen_container"></div>
 
-    <script src="https://unpkg.com/v86@latest/build/libv86.js"></script>
+    <script src="https://unpkg.com/v86@9.0.3/build/libv86.js"></script>
     <script>
         window.addEventListener('load', function() {
-            console.log("Starting v86...");
+            console.log("Starting v86 9.0.3...");
             
-            try {
-                var emulator = new V86({
-                    screen_container: document.getElementById("screen_container"),
-                    bios: {
-                        url: "seabios.bin",
-                    },
-                    vga_bios: {
-                        url: "vgabios.bin",
-                    },
-                    hda: {
-                        url: "freedos722.img",
-                        async: false,
-                    },
-                    fda: {
-                        url: "ENTRAPNT.exe",
-                    },
-                    boot_order: 0x132,
-                    autostart: true,
-                });
-                
-                console.log("Emulator created successfully");
-                window.emulator = emulator;
-                
-                emulator.add_listener("emulator-started", function() {
-                    console.log("Emulator started!");
-                    setTimeout(function() {
-                        emulator.keyboard_send_text("A:\\ENTRAPNT.exe\r");
-                    }, 8000);
-                });
-            } catch(e) {
-                console.error("Error creating emulator:", e);
-            }
+            var emulator = new V86Starter({
+                screen_container: document.getElementById("screen_container"),
+                bios: {
+                    url: "seabios.bin",
+                },
+                vga_bios: {
+                    url: "vgabios.bin",
+                },
+                hda: {
+                    url: "freedos722.img",
+                    async: false,
+                },
+                fda: {
+                    url: "ENTRAPNT.exe",
+                },
+                boot_order: 0x132,
+                memory_size: 32 * 1024 * 1024,
+                autostart: true,
+            });
+            
+            console.log("Emulator created");
+            window.emulator = emulator;
+            
+            emulator.add_listener("emulator-started", function() {
+                console.log("Emulator started!");
+                setTimeout(function() {
+                    emulator.keyboard_send_text("A:\\ENTRAPNT.exe\r");
+                }, 8000);
+            });
         });
     </script>
 </body>
