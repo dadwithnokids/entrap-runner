@@ -20,29 +20,22 @@
             min-height: 100vh;
         }
         
-        #screen_container {
-            width: 100%;
-            height: 100%;
-        }
-        
-        canvas {
-            width: 100%;
-            height: 100%;
+        #screen {
+            width: 100vw;
+            height: 100vh;
             image-rendering: pixelated;
             image-rendering: crisp-edges;
         }
     </style>
 </head>
 <body>
-    <div id="screen_container">
-        <canvas></canvas>
-    </div>
+    <canvas id="screen"></canvas>
 
     <script src="https://unpkg.com/v86@latest/build/libv86.js"></script>
     <script>
         window.addEventListener('load', function() {
             var emulator = new V86({
-                screen_container: document.getElementById("screen_container"),
+                screen_container: document.getElementById("screen"),
                 bios: {
                     url: "https://dadwithnokids.github.io/entrap-runner/seabios.bin",
                 },
@@ -66,6 +59,3 @@
                 }, 8000);
             });
         });
-    </script>
-</body>
-</html>
