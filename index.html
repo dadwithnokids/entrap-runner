@@ -3,9 +3,20 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ENTRAP</title>
+    <title>ENTRAP Manual Mode</title>
     <style>
-        body { background-color: #000; margin: 0; padding: 0; height: 100vh; overflow: hidden; font-family: 'Courier New', monospace; color: #0f0; display: flex; justify-content: center; align-items: center; }
+        body { 
+            background-color: #000; 
+            margin: 0; 
+            padding: 0; 
+            height: 100vh; 
+            overflow: hidden; 
+            font-family: 'Courier New', monospace; 
+            color: #0f0; 
+            display: flex; 
+            justify-content: center; 
+            align-items: center; 
+        }
         
         #screen_container { 
             position: relative; 
@@ -14,7 +25,7 @@
             display: flex; 
             justify-content: center; 
             align-items: center; 
-            cursor: none; /* Hide default cursor when locked */
+            /* Removed 'cursor: none' so you can always see your mouse */
         }
         
         canvas { 
@@ -30,18 +41,12 @@
             z-index: 999; text-align: center; min-width: 300px; font-weight: bold;
             pointer-events: none;
         }
-
-        #overlay {
-            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
-            z-index: 50; display: none; /* Hidden by default */
-        }
     </style>
 </head>
 <body>
 
     <div id="screen_container">
-        <div id="status">Page Loaded. Checking files...</div>
-        <div id="overlay"></div>
+        <div id="status">Initializing Manual Mode...</div>
         <canvas id="screen"></canvas>
     </div>
 
@@ -50,20 +55,11 @@
     <script>
         function log(msg) {
             document.getElementById("status").innerText = msg;
-            console.log(msg);
         }
 
         window.onload = async function() {
             try {
-                // --- STEP 1: CHECK GAME ISO ---
-                log("Checking for 'entrap.iso'...");
-                // Note: File names are CASE SENSITIVE on GitHub!
-                let isoCheck = await fetch("entrap.iso");
-                if (!isoCheck.ok) {
-                    throw new Error("Game file missing! \nMake sure your file is named exactly 'entrap.iso' (lowercase) on GitHub.");
-                }
-
-                // --- STEP 2: LOAD CHUNKS ---
+                // --- STEP 1: LOAD CHUNKS ---
                 log("Loading Windows 95...");
                 var buffers = [];
                 var suffixes = ["aa","ab","ac","ad","ae","af","ag","ah","ai","aj","ak","al","am","an","ao","ap","aq","ar","as","at"];
@@ -83,8 +79,8 @@
                 const finalBlob = new Blob(buffers);
                 const fileURL = URL.createObjectURL(finalBlob);
 
-                // --- STEP 3: START EMULATOR ---
-                log("Booting... CLICK SCREEN TO CAPTURE MOUSE");
+                // --- STEP 2: START EMULATOR ---
+                log("Booting... CLICK SCREEN TO LOCK MOUSE");
                 
                 var emulator = new V86({
                     screen_container: document.getElementById("screen_container"),
@@ -92,52 +88,36 @@
                     vga_memory_size: 8 * 1024 * 1024,
                     bios: { url: "./seabios.bin" },
                     vga_bios: { url: "./vgabios.bin" },
-                    cdrom: { url: "./entrap.iso", async: true },
+                    
+                    // MOUNT GAME AS D:
+                    hdb: { url: "./entrap.img", async: true },
+                    
+                    // SYSTEM DRIVE C:
                     hda: { url: fileURL, async: true },
+                    
                     autostart: true
                 });
 
-                // --- STEP 4: MOUSE LOCKING ---
-                // Clicking the screen locks the mouse to the emulator
-                document.getElementById("screen_container").addEventListener("click", function() {
+                // --- STEP 3: MOUSE HANDLING ---
+                // We click the canvas directly now (no overlay)
+                document.getElementById("screen").addEventListener("click", function() {
                     emulator.lock_mouse();
                 });
 
-                // --- STEP 5: AUTOMATION ---
+                // --- STEP 4: NO AUTOMATION ---
+                // We just let it boot so you can explore
                 var booted = false;
                 emulator.add_listener("screen-set-mode", function(is_graphical) {
                     if(is_graphical && !booted) {
                         booted = true;
+                        log("Windows Starting... (Manual Mode)");
                         
-                        // Countdown
-                        var seconds = 60;
-                        var timer = setInterval(function() {
-                            seconds--;
-                            log("Auto-launch in: " + seconds + "s (Press ESC to release mouse)");
-                            if (seconds <= 0) {
-                                clearInterval(timer);
-                                launchGame();
-                            }
-                        }, 1000);
+                        // Just hide the text after 10 seconds
+                        setTimeout(() => { 
+                            document.getElementById("status").style.display='none'; 
+                        }, 10000);
                     }
                 });
-
-                function launchGame() {
-                    log("Launching ENTRAP...");
-                    emulator.keyboard_send_scancodes([0x1D, 0x01]); // Ctrl+Esc
-                    setTimeout(() => emulator.keyboard_send_scancodes([0x9D, 0x81]), 200);
-                    setTimeout(() => {
-                        emulator.keyboard_send_text("r");
-                        setTimeout(() => {
-                            // Trying drive D: first
-                            var cmd = "D:\\ENTRAPNT.EXE\n";
-                            for(let i=0; i<cmd.length; i++) {
-                                setTimeout(() => emulator.keyboard_send_text(cmd[i]), i*100);
-                            }
-                            setTimeout(() => { document.getElementById("status").style.display='none'; }, 3000);
-                        }, 1000);
-                    }, 1000);
-                }
 
             } catch (err) {
                 log("ERROR: " + err.message);
