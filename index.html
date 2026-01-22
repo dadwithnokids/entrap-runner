@@ -6,7 +6,7 @@
     <title>ENTRAP</title>
     <style>
         body {
-            background-color: #000;
+            background-color: #111;
             margin: 0;
             padding: 0;
             height: 100vh;
@@ -15,32 +15,43 @@
             display: flex;
             align-items: center;
             justify-content: center;
+            font-family: 'Courier New', Courier, monospace;
+            color: #0f0; /* Retro Green Text */
         }
         
-        /* This is the container v86 looks for */
         #screen_container {
             position: relative;
-            background-color: #000;
-            /* 4:3 Aspect Ratio for Win95 */
             width: 800px;
             height: 600px; 
             max-width: 100vw;
+            background-color: #000;
+            border: 2px solid #333;
         }
 
-        /* The canvas inside must be explicit */
         #screen_container canvas {
             display: block;
             width: 100%;
             height: 100%;
         }
 
-        /* The text layer (required by v86 even if empty) */
-        .phone_keyboard { display: none; }
+        /* The Status Text (Loading Bar) */
+        #status {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            text-align: center;
+            background: rgba(0, 0, 0, 0.8);
+            padding: 20px;
+            border: 1px solid #0f0;
+            z-index: 10;
+        }
     </style>
 </head>
 <body>
 
     <div id="screen_container">
+        <div id="status">Initializing...</div>
         <div style="white-space: pre; font: 14px monospace; line-height: 14px"></div>
         <canvas></canvas>
     </div>
@@ -49,28 +60,31 @@
 
     <script>
         window.onload = function() {
-            console.log("Initializing Emulator...");
+            var statusElement = document.getElementById("status");
+
+            function updateStatus(msg) {
+                console.log(msg);
+                statusElement.innerText = msg;
+            }
+
+            updateStatus("Connecting to libraries...");
 
             var emulator = new V86({
-                // We pass the container, but we ensured the canvas exists inside it above
                 screen_container: document.getElementById("screen_container"),
-                
-                // Hardware Specs
-                memory_size: 128 * 1024 * 1024,
+                memory_size: 64 * 1024 * 1024, // Lowered to 64MB for stability
                 vga_memory_size: 8 * 1024 * 1024,
 
-                // BIOS Files (Local in your repo)
-                bios: { url: "seabios.bin" },
-                vga_bios: { url: "vgabios.bin" },
+                // We use reliable external mirrors for the BIOS files to be safe
+                bios: { url: "https://unpkg.com/v86@latest/bios/seabios.bin" },
+                vga_bios: { url: "https://unpkg.com/v86@latest/bios/vgabios.bin" },
 
-                // Windows 95 Drive (External reliable mirror)
-                // This is a ~200MB download on first load!
+                // Windows 95 Image
                 hda: { 
                     url: "https://github.com/copy/images/raw/master/windows95.img",
                     async: true 
                 },
 
-                // Your Game CD (Local in your repo)
+                // Your Game ISO (Must be in your repo)
                 cdrom: { 
                     url: "entrap.iso",
                     async: true
@@ -79,13 +93,55 @@
                 autostart: true
             });
 
-            // --- Automation Script ---
-            var booted = false;
+            // --- Download Progress Tracker ---
+            var current_download = "";
             
+            emulator.add_listener("download-progress", function(e) {
+                // Determine which file is downloading based on size roughly
+                if (e.file_name.includes("windows95")) current_download = "Windows 95";
+                else if (e.file_name.includes("entrap")) current_download = "Game Files";
+                else current_download = "System Files";
+
+                // Calculate percentage
+                var percent = 0;
+                if (e.total > 0) {
+                    percent = Math.floor((e.loaded / e.total) * 100);
+                }
+                
+                updateStatus("Downloading " + current_download + ": " + percent + "%");
+            });
+
+            // --- Boot Handler ---
+            emulator.add_listener("emulator-ready", function() {
+                updateStatus("Download Complete. Booting Windows 95...");
+                setTimeout(function() {
+                    // Hide the status text once boot starts visually
+                    statusElement.style.display = "none";
+                }, 5000);
+            });
+
+            var booted = false;
             emulator.add_listener("screen-set-mode", function(is_graphical) {
                 if(is_graphical && !booted) {
-                    console.log("Graphical mode detected (Windows booting)...");
                     booted = true;
-
-                    // Wait 45 seconds for Windows to reach Desktop
-                    setTimeout
+                    console.log("Graphical mode detected...");
+                    
+                    // Automation sequence
+                    setTimeout(function() {
+                        // 1. Open Run Dialog (Win95 Key combo: Ctrl+Esc, then R)
+                        emulator.keyboard_send_scancodes([0x1D, 0x01]); // Ctrl+Esc
+                        setTimeout(() => emulator.keyboard_send_scancodes([0x9D, 0x81]), 100);
+                        
+                        setTimeout(function() {
+                            emulator.keyboard_send_text("r");
+                            setTimeout(function() {
+                                emulator.keyboard_send_text("D:\\ENTRAPNT.EXE\n");
+                            }, 1000);
+                        }, 1000);
+                    }, 45000); // 45s wait for desktop
+                }
+            });
+        };
+    </script>
+</body>
+</html>
