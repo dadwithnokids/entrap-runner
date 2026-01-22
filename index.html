@@ -3,20 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ENTRAP Manual Mode</title>
+    <title>ENTRAP</title>
     <style>
-        body { 
-            background-color: #000; 
-            margin: 0; 
-            padding: 0; 
-            height: 100vh; 
-            overflow: hidden; 
-            font-family: 'Courier New', monospace; 
-            color: #0f0; 
-            display: flex; 
-            justify-content: center; 
-            align-items: center; 
-        }
+        body { background-color: #000; margin: 0; padding: 0; height: 100vh; overflow: hidden; font-family: 'Courier New', monospace; color: #0f0; display: flex; justify-content: center; align-items: center; }
         
         #screen_container { 
             position: relative; 
@@ -25,7 +14,6 @@
             display: flex; 
             justify-content: center; 
             align-items: center; 
-            /* Removed 'cursor: none' so you can always see your mouse */
         }
         
         canvas { 
@@ -33,6 +21,7 @@
             max-height: 100%; 
             object-fit: contain; 
             image-rendering: pixelated; 
+            cursor: none; /* Hide default cursor so you only see the Windows one */
         }
 
         #status { 
@@ -46,8 +35,8 @@
 <body>
 
     <div id="screen_container">
-        <div id="status">Initializing Manual Mode...</div>
-        <canvas id="screen"></canvas>
+        <div id="status">System Initializing...</div>
+        <canvas id="screen" tabindex="0"></canvas>
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/v86@latest/build/libv86.js"></script>
@@ -60,7 +49,7 @@
         window.onload = async function() {
             try {
                 // --- STEP 1: LOAD CHUNKS ---
-                log("Loading Windows 95...");
+                log("Loading System...");
                 var buffers = [];
                 var suffixes = ["aa","ab","ac","ad","ae","af","ag","ah","ai","aj","ak","al","am","an","ao","ap","aq","ar","as","at"];
                 
@@ -80,7 +69,7 @@
                 const fileURL = URL.createObjectURL(finalBlob);
 
                 // --- STEP 2: START EMULATOR ---
-                log("Booting... CLICK SCREEN TO LOCK MOUSE");
+                log("Booting...");
                 
                 var emulator = new V86({
                     screen_container: document.getElementById("screen_container"),
@@ -89,35 +78,62 @@
                     bios: { url: "./seabios.bin" },
                     vga_bios: { url: "./vgabios.bin" },
                     
-                    // MOUNT GAME AS D:
-                    hdb: { url: "./entrap.img", async: true },
+                    // FORCE MOUSE DRIVER (Fixes stuck mouse)
+                    mouse_driver_type: "ps2",
                     
-                    // SYSTEM DRIVE C:
-                    hda: { url: fileURL, async: true },
+                    // DRIVES
+                    hdb: { url: "./entrap.img", async: true }, // D:
+                    hda: { url: fileURL, async: true },        // C:
                     
                     autostart: true
                 });
 
-                // --- STEP 3: MOUSE HANDLING ---
-                // We click the canvas directly now (no overlay)
+                // --- STEP 3: CLICK TO LOCK ---
+                // You must click the screen to capture the mouse
                 document.getElementById("screen").addEventListener("click", function() {
                     emulator.lock_mouse();
                 });
 
-                // --- STEP 4: NO AUTOMATION ---
-                // We just let it boot so you can explore
+                // --- STEP 4: AUTO LAUNCH ---
                 var booted = false;
                 emulator.add_listener("screen-set-mode", function(is_graphical) {
                     if(is_graphical && !booted) {
                         booted = true;
-                        log("Windows Starting... (Manual Mode)");
                         
-                        // Just hide the text after 10 seconds
-                        setTimeout(() => { 
-                            document.getElementById("status").style.display='none'; 
-                        }, 10000);
+                        var seconds = 60;
+                        var timer = setInterval(function() {
+                            seconds--;
+                            log("Windows Starting... Auto-launch in " + seconds + "s");
+                            if (seconds <= 0) {
+                                clearInterval(timer);
+                                launchGame();
+                            }
+                        }, 1000);
                     }
                 });
+
+                function launchGame() {
+                    log("Launching ENTRAP...");
+                    
+                    // 1. Open Start Menu (Ctrl+Esc)
+                    emulator.keyboard_send_scancodes([0x1D, 0x01]); 
+                    setTimeout(() => emulator.keyboard_send_scancodes([0x9D, 0x81]), 200);
+                    
+                    setTimeout(() => {
+                        // 2. Open Run (R)
+                        emulator.keyboard_send_text("r");
+                        
+                        setTimeout(() => {
+                            // 3. Type Path (D:\ENTRAPNT.EXE)
+                            var cmd = "D:\\ENTRAPNT.EXE\n";
+                            for(let i=0; i<cmd.length; i++) {
+                                setTimeout(() => emulator.keyboard_send_text(cmd[i]), i*100);
+                            }
+                            // Hide status text
+                            setTimeout(() => { document.getElementById("status").style.display='none'; }, 3000);
+                        }, 1000);
+                    }, 1000);
+                }
 
             } catch (err) {
                 log("ERROR: " + err.message);
