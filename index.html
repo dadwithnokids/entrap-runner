@@ -14,62 +14,65 @@
         body {
             background: #000;
             overflow: hidden;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            min-height: 100vh;
         }
         
-        #screen {
+        #screen_container {
+            position: fixed;
+            top: 0;
+            left: 0;
             width: 100vw;
             height: 100vh;
+        }
+        
+        #screen_container canvas {
+            width: 100% !important;
+            height: 100% !important;
             image-rendering: pixelated;
             image-rendering: crisp-edges;
         }
     </style>
 </head>
 <body>
-    <canvas id="screen"></canvas>
+    <div id="screen_container"></div>
 
     <script src="https://unpkg.com/v86@latest/build/libv86.js"></script>
     <script>
         window.addEventListener('load', function() {
-            console.log("Page loaded, starting emulator...");
+            console.log("Starting v86...");
             
-            var emulator = new V86({
-                screen_container: document.getElementById("screen"),
-                bios: {
-                    url: "https://dadwithnokids.github.io/entrap-runner/seabios.bin",
-                },
-                vga_bios: {
-                    url: "https://dadwithnokids.github.io/entrap-runner/vgabios.bin",
-                },
-                hda: {
-                    url: "https://dadwithnokids.github.io/entrap-runner/freedos722.img",
-                    async: false,
-                },
-                fda: {
-                    url: "https://dadwithnokids.github.io/entrap-runner/ENTRAPNT.exe",
-                },
-                boot_order: 0x132,
-                autostart: true,
-            });
-            
-            console.log("Emulator created:", emulator);
-            
-            emulator.add_listener("emulator-loaded", function() {
-                console.log("Emulator loaded!");
-            });
-            
-            emulator.add_listener("emulator-started", function() {
-                console.log("Emulator started! Will launch ENTRAPNT.exe in 8 seconds...");
-                setTimeout(function() {
-                    console.log("Sending keyboard command to launch ENTRAPNT.exe");
-                    emulator.keyboard_send_text("A:\\ENTRAPNT.exe\r");
-                }, 8000);
-            });
-            
-            // Make emulator globally accessible for debugging
-            window.emulator = emulator;
+            try {
+                var emulator = new V86({
+                    screen_container: document.getElementById("screen_container"),
+                    bios: {
+                        url: "seabios.bin",
+                    },
+                    vga_bios: {
+                        url: "vgabios.bin",
+                    },
+                    hda: {
+                        url: "freedos722.img",
+                        async: false,
+                    },
+                    fda: {
+                        url: "ENTRAPNT.exe",
+                    },
+                    boot_order: 0x132,
+                    autostart: true,
+                });
+                
+                console.log("Emulator created successfully");
+                window.emulator = emulator;
+                
+                emulator.add_listener("emulator-started", function() {
+                    console.log("Emulator started!");
+                    setTimeout(function() {
+                        emulator.keyboard_send_text("A:\\ENTRAPNT.exe\r");
+                    }, 8000);
+                });
+            } catch(e) {
+                console.error("Error creating emulator:", e);
+            }
         });
     </script>
+</body>
+</html>
