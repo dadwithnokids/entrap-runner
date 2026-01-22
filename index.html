@@ -5,109 +5,144 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>ENTRAP</title>
     <style>
-        body { background-color: #111; margin: 0; padding: 0; height: 100vh; overflow: hidden; display: flex; align-items: center; justify-content: center; font-family: 'Courier New', monospace; color: #0f0; }
-        #screen_container { position: relative; width: 800px; height: 600px; background-color: #000; border: 2px solid #333; }
-        #screen_container canvas { display: block; width: 100%; height: 100%; }
-        #status { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); text-align: center; background: rgba(0, 0, 0, 0.9); padding: 20px; border: 1px solid #0f0; z-index: 10; min-width: 300px; }
-        #start_btn { background: #0f0; color: #000; border: none; padding: 10px 20px; font-weight: bold; cursor: pointer; font-size: 16px; margin-top: 10px; }
+        body { background-color: #000; margin: 0; padding: 0; height: 100vh; overflow: hidden; font-family: 'Courier New', monospace; color: #0f0; display: flex; justify-content: center; align-items: center; }
+        
+        #screen_container { 
+            position: relative; 
+            width: 100%; 
+            height: 100%; 
+            display: flex; 
+            justify-content: center; 
+            align-items: center; 
+            cursor: none; /* Hide default cursor when locked */
+        }
+        
+        canvas { 
+            max-width: 100%; 
+            max-height: 100%; 
+            object-fit: contain; 
+            image-rendering: pixelated; 
+        }
+
+        #status { 
+            position: absolute; top: 20px; left: 50%; transform: translateX(-50%); 
+            background: rgba(0,0,0,0.9); padding: 15px; border: 2px solid #0f0; 
+            z-index: 999; text-align: center; min-width: 300px; font-weight: bold;
+            pointer-events: none;
+        }
+
+        #overlay {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            z-index: 50; display: none; /* Hidden by default */
+        }
     </style>
 </head>
 <body>
 
     <div id="screen_container">
-        <div id="status">
-            System Ready.<br><br>
-            <button id="start_btn">START DIAGNOSTIC</button>
-        </div>
-        <div style="white-space: pre; font: 14px monospace; line-height: 14px"></div>
-        <canvas></canvas>
+        <div id="status">Page Loaded. Checking files...</div>
+        <div id="overlay"></div>
+        <canvas id="screen"></canvas>
     </div>
 
-    <script src="https://unpkg.com/v86@latest/build/libv86.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/v86@latest/build/libv86.js"></script>
 
     <script>
-        // 2. Setup the "Click" Handler
-        var btn = document.getElementById("start_btn");
-        
-        btn.onclick = function() {
-            // ALERT 1: Prove the button works
-            alert("Step 1: Button Clicked. Checking emulator...");
+        function log(msg) {
+            document.getElementById("status").innerText = msg;
+            console.log(msg);
+        }
 
-            var statusElement = document.getElementById("status");
-            btn.style.display = "none";
-            statusElement.innerText = "Initializing...";
-
-            // Check if V86 loaded
-            if (typeof V86 === 'undefined') {
-                alert("CRITICAL ERROR: The 'V86' library failed to load.\n\nYour browser or network is blocking the script from 'unpkg.com'.");
-                statusElement.innerText = "Error: Library Blocked";
-                return;
-            }
-
+        window.onload = async function() {
             try {
-                // ALERT 2: Confirm we are starting the engine
-                // alert("Step 2: Starting Emulator Engine..."); // Uncomment if needed
+                // --- STEP 1: CHECK GAME ISO ---
+                log("Checking for 'entrap.iso'...");
+                // Note: File names are CASE SENSITIVE on GitHub!
+                let isoCheck = await fetch("entrap.iso");
+                if (!isoCheck.ok) {
+                    throw new Error("Game file missing! \nMake sure your file is named exactly 'entrap.iso' (lowercase) on GitHub.");
+                }
 
+                // --- STEP 2: LOAD CHUNKS ---
+                log("Loading Windows 95...");
+                var buffers = [];
+                var suffixes = ["aa","ab","ac","ad","ae","af","ag","ah","ai","aj","ak","al","am","an","ao","ap","aq","ar","as","at"];
+                
+                for (let i = 0; i < suffixes.length; i++) {
+                    let filename = "win95_chunk_" + suffixes[i];
+                    try {
+                        let res = await fetch(filename);
+                        if (!res.ok) break;
+                        let blob = await res.arrayBuffer();
+                        buffers.push(blob);
+                    } catch (e) { break; }
+                }
+
+                if (buffers.length === 0) throw new Error("System chunks missing.");
+                
+                const finalBlob = new Blob(buffers);
+                const fileURL = URL.createObjectURL(finalBlob);
+
+                // --- STEP 3: START EMULATOR ---
+                log("Booting... CLICK SCREEN TO CAPTURE MOUSE");
+                
                 var emulator = new V86({
                     screen_container: document.getElementById("screen_container"),
-                    memory_size: 64 * 1024 * 1024,
+                    memory_size: 96 * 1024 * 1024,
                     vga_memory_size: 8 * 1024 * 1024,
-
-                    // LOCAL FILES
                     bios: { url: "./seabios.bin" },
                     vga_bios: { url: "./vgabios.bin" },
                     cdrom: { url: "./entrap.iso", async: true },
-
-                    // NEW SOURCE: Internet Archive (Direct Link)
-                    // This bypasses the GitHub blocks and Proxy issues
-                    hda: { 
-                        url: "https://archive.org/download/windows-95-img/windows95.img",
-                        async: true 
-                    },
-
+                    hda: { url: fileURL, async: true },
                     autostart: true
                 });
 
-                // Download Tracker
-                emulator.add_listener("download-progress", function(e) {
-                    var current_download = "System File";
-                    if (e.file_name.includes("windows95")) current_download = "Windows 95";
-                    else if (e.file_name.includes("entrap")) current_download = "Game ISO";
-                    
-                    var percent = 0;
-                    if (e.total > 0) percent = Math.floor((e.loaded / e.total) * 100);
-                    
-                    // Update text on screen
-                    statusElement.innerText = "Downloading " + current_download + ": " + percent + "%";
+                // --- STEP 4: MOUSE LOCKING ---
+                // Clicking the screen locks the mouse to the emulator
+                document.getElementById("screen_container").addEventListener("click", function() {
+                    emulator.lock_mouse();
                 });
 
-                // Boot Tracker
-                emulator.add_listener("emulator-ready", function() {
-                    statusElement.innerText = "Booting Windows 95...";
-                    setTimeout(function() { statusElement.style.display = "none"; }, 2000);
-                });
-
-                // Automation
+                // --- STEP 5: AUTOMATION ---
                 var booted = false;
                 emulator.add_listener("screen-set-mode", function(is_graphical) {
                     if(is_graphical && !booted) {
                         booted = true;
-                        console.log("Graphical mode detected...");
-                        setTimeout(function() {
-                            emulator.keyboard_send_scancodes([0x1D, 0x01]); 
-                            setTimeout(() => emulator.keyboard_send_scancodes([0x9D, 0x81]), 100);
-                            setTimeout(function() {
-                                emulator.keyboard_send_text("r");
-                                setTimeout(function() {
-                                    emulator.keyboard_send_text("D:\\ENTRAPNT.EXE\n");
-                                }, 1000);
-                            }, 1000);
-                        }, 45000); 
+                        
+                        // Countdown
+                        var seconds = 60;
+                        var timer = setInterval(function() {
+                            seconds--;
+                            log("Auto-launch in: " + seconds + "s (Press ESC to release mouse)");
+                            if (seconds <= 0) {
+                                clearInterval(timer);
+                                launchGame();
+                            }
+                        }, 1000);
                     }
                 });
 
+                function launchGame() {
+                    log("Launching ENTRAP...");
+                    emulator.keyboard_send_scancodes([0x1D, 0x01]); // Ctrl+Esc
+                    setTimeout(() => emulator.keyboard_send_scancodes([0x9D, 0x81]), 200);
+                    setTimeout(() => {
+                        emulator.keyboard_send_text("r");
+                        setTimeout(() => {
+                            // Trying drive D: first
+                            var cmd = "D:\\ENTRAPNT.EXE\n";
+                            for(let i=0; i<cmd.length; i++) {
+                                setTimeout(() => emulator.keyboard_send_text(cmd[i]), i*100);
+                            }
+                            setTimeout(() => { document.getElementById("status").style.display='none'; }, 3000);
+                        }, 1000);
+                    }, 1000);
+                }
+
             } catch (err) {
-                alert("CRITICAL ERROR: " + err.message);
+                log("ERROR: " + err.message);
+                document.getElementById("status").style.borderColor = "red";
+                document.getElementById("status").style.color = "red";
             }
         };
     </script>
