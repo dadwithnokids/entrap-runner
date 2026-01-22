@@ -34,7 +34,6 @@
             height: 100%;
         }
 
-        /* Status Overlay */
         #status {
             position: absolute;
             top: 50%;
@@ -48,7 +47,6 @@
             min-width: 300px;
         }
 
-        /* The Start Button */
         #start_btn {
             background: #0f0;
             color: #000;
@@ -85,12 +83,10 @@
     <script src="https://cdn.jsdelivr.net/npm/v86@latest/build/libv86.js"></script>
 
     <script>
-        // Wait for user interaction to avoid AudioContext and Autoplay blocks
         document.getElementById("start_btn").addEventListener("click", function() {
             var statusElement = document.getElementById("status");
             var btn = document.getElementById("start_btn");
             
-            // Remove button and show loading text
             btn.style.display = "none";
             statusElement.innerText = "Step 1: Initialization...";
 
@@ -105,15 +101,15 @@
                     memory_size: 64 * 1024 * 1024, 
                     vga_memory_size: 8 * 1024 * 1024,
 
-                    // LOCAL FILES (Your Repo)
+                    // LOCAL FILES (From your repo)
                     bios: { url: "./seabios.bin" },
                     vga_bios: { url: "./vgabios.bin" },
                     cdrom: { url: "./entrap.iso", async: true },
 
-                    // EXTERNAL FILE (Fixed Direct Link)
-                    // We use the "raw" link to avoid the redirect loop
+                    // EXTERNAL FILE (CDN)
+                    // We switched to JSDelivr which ALLOWS external downloading
                     hda: { 
-                        url: "https://raw.githubusercontent.com/copy/images/master/windows95.img",
+                        url: "https://cdn.jsdelivr.net/gh/copy/images/windows95.img",
                         async: true 
                     },
 
