@@ -101,14 +101,15 @@
                     memory_size: 64 * 1024 * 1024, 
                     vga_memory_size: 8 * 1024 * 1024,
 
-                    // LOCAL FILES (Bios files must be in your repo)
+                    // LOCAL FILES
                     bios: { url: "./seabios.bin" },
                     vga_bios: { url: "./vgabios.bin" },
                     cdrom: { url: "./entrap.iso", async: true },
 
-                    // SYSTEM DRIVE (Your Release Link)
+                    // SYSTEM DRIVE (PROXY ENABLED)
+                    // We wrap your link in a proxy to bypass the security block
                     hda: { 
-                        url: "https://github.com/dadwithnokids/entrap-runner/releases/download/v1.0/win95.img",
+                        url: "https://corsproxy.io/?https://github.com/dadwithnokids/entrap-runner/releases/download/v1.0/win95.img",
                         async: true 
                     },
 
@@ -118,8 +119,8 @@
                 // --- Download Tracker ---
                 emulator.add_listener("download-progress", function(e) {
                     var current_download = "System File";
-                    // Updated to check for 'win95' since you renamed the file
-                    if (e.file_name.includes("win95") || e.file_name.includes("windows95")) {
+                    // The proxy changes the name slightly, so we just check generally
+                    if (e.file_name.includes("win95") || e.file_name.includes("proxy")) {
                         current_download = "Windows 95";
                     } else if (e.file_name.includes("entrap")) {
                         current_download = "Game ISO";
@@ -163,7 +164,3 @@
             } catch (err) {
                 updateStatus("CRITICAL ERROR: " + err.message);
             }
-        });
-    </script>
-</body>
-</html>
