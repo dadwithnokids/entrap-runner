@@ -17,7 +17,7 @@
     <div id="screen_container">
         <div id="status">
             System Ready.<br><br>
-            <button id="start_btn">START DIAGNOSTIC</button>
+            <button id="start_btn">START SYSTEM</button>
         </div>
         <div style="white-space: pre; font: 14px monospace; line-height: 14px"></div>
         <canvas></canvas>
@@ -26,68 +26,72 @@
     <script src="https://unpkg.com/v86@latest/build/libv86.js"></script>
 
     <script>
-        // 2. Setup the "Click" Handler
-        var btn = document.getElementById("start_btn");
+        // --- CONFIGURATION ---
+        // This looks for files named win95_chunk_aa, win95_chunk_ab, etc.
+        const CHUNK_PREFIX = "win95_chunk_";
         
-        btn.onclick = function() {
-            // ALERT 1: Prove the button works
-            alert("Step 1: Button Clicked. Checking emulator...");
+        var btn = document.getElementById("start_btn");
+        var statusElement = document.getElementById("status");
 
-            var statusElement = document.getElementById("status");
+        btn.onclick = async function() {
             btn.style.display = "none";
-            statusElement.innerText = "Initializing...";
-
-            // Check if V86 loaded
-            if (typeof V86 === 'undefined') {
-                alert("CRITICAL ERROR: The 'V86' library failed to load.\n\nYour browser or network is blocking the script from 'unpkg.com'.");
-                statusElement.innerText = "Error: Library Blocked";
-                return;
-            }
+            statusElement.innerText = "Initializing Loader...";
 
             try {
-                // ALERT 2: Confirm we are starting the engine
-                // alert("Step 2: Starting Emulator Engine..."); // Uncomment if needed
+                // 1. Fetch and Stitch Chunks
+                statusElement.innerText = "Downloading System Chunks...";
+                var totalParts = 0;
+                var buffers = [];
+                // We check up to 20 chunks ('at'). If you have more, add 'au', 'av', etc.
+                var suffixes = ["aa","ab","ac","ad","ae","af","ag","ah","ai","aj","ak","al","am","an","ao","ap","aq","ar","as","at"]; 
+                
+                for (let i = 0; i < suffixes.length; i++) {
+                    let filename = CHUNK_PREFIX + suffixes[i];
+                    
+                    try {
+                        let response = await fetch(filename);
+                        if (!response.ok) break; // Stop if we run out of chunks
+                        
+                        statusElement.innerText = "Fetching part: " + filename;
+                        let blob = await response.arrayBuffer();
+                        buffers.push(blob);
+                        totalParts++;
+                    } catch (e) {
+                        break;
+                    }
+                }
 
+                if (totalParts === 0) {
+                    throw new Error("No chunks found! Please ensure win95_chunk_aa is uploaded.");
+                }
+
+                statusElement.innerText = "Stitching " + totalParts + " chunks...";
+                
+                // Merge chunks into one blob
+                const finalBlob = new Blob(buffers);
+                const fileURL = URL.createObjectURL(finalBlob);
+
+                // 2. Start Emulator with Local Blob
+                statusElement.innerText = "Booting Windows 95...";
+                
                 var emulator = new V86({
                     screen_container: document.getElementById("screen_container"),
                     memory_size: 64 * 1024 * 1024,
                     vga_memory_size: 8 * 1024 * 1024,
-
-                    // LOCAL FILES
                     bios: { url: "./seabios.bin" },
                     vga_bios: { url: "./vgabios.bin" },
                     cdrom: { url: "./entrap.iso", async: true },
-
-                    // NEW SOURCE: Internet Archive (Direct Link)
-                    // This bypasses the GitHub blocks and Proxy issues
-                    hda: { 
-                        url: "https://archive.org/download/windows-95-img/windows95.img",
-                        async: true 
-                    },
-
+                    
+                    // We load the stitched file from browser memory
+                    hda: { url: fileURL, async: true },
                     autostart: true
                 });
 
-                // Download Tracker
-                emulator.add_listener("download-progress", function(e) {
-                    var current_download = "System File";
-                    if (e.file_name.includes("windows95")) current_download = "Windows 95";
-                    else if (e.file_name.includes("entrap")) current_download = "Game ISO";
-                    
-                    var percent = 0;
-                    if (e.total > 0) percent = Math.floor((e.loaded / e.total) * 100);
-                    
-                    // Update text on screen
-                    statusElement.innerText = "Downloading " + current_download + ": " + percent + "%";
-                });
-
-                // Boot Tracker
+                // 3. Automation
                 emulator.add_listener("emulator-ready", function() {
-                    statusElement.innerText = "Booting Windows 95...";
                     setTimeout(function() { statusElement.style.display = "none"; }, 2000);
                 });
 
-                // Automation
                 var booted = false;
                 emulator.add_listener("screen-set-mode", function(is_graphical) {
                     if(is_graphical && !booted) {
@@ -107,7 +111,8 @@
                 });
 
             } catch (err) {
-                alert("CRITICAL ERROR: " + err.message);
+                alert("ERROR: " + err.message);
+                statusElement.innerText = "Failed.";
             }
         };
     </script>
