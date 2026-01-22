@@ -32,20 +32,44 @@
 </head>
 <body>
     <div id="screen_container"></div>
-
     <script src="https://unpkg.com/v86@latest/build/libv86.js"></script>
     <script>
         window.addEventListener('load', function() {
             console.log("Creating emulator...");
-            
-            // Create canvas manually
             var canvas = document.createElement('canvas');
             canvas.width = 1024;
             canvas.height = 768;
             document.getElementById("screen_container").appendChild(canvas);
-            
             var emulator = new V86({
                 memory_size: 32 * 1024 * 1024,
                 vga_memory_size: 8 * 1024 * 1024,
                 screen_container: document.getElementById("screen_container"),
-                bio
+                bios: {
+                    url: "seabios.bin",
+                },
+                vga_bios: {
+                    url: "vgabios.bin",
+                },
+                hda: {
+                    url: "freedos722.img",
+                    async: false,
+                },
+                fda: {
+                    url: "ENTRAPNT.exe",
+                },
+                boot_order: 0x132,
+                autostart: true,
+            });
+            console.log("Emulator created");
+            window.emulator = emulator;
+            emulator.add_listener("emulator-started", function() {
+                console.log("Emulator started!");
+                setTimeout(function() {
+                    console.log("Launching ENTRAPNT.exe");
+                    emulator.keyboard_send_text("A:\\ENTRAPNT.exe\r");
+                }, 8000);
+            });
+        });
+    </script>
+</body>
+</html>
