@@ -16,7 +16,7 @@
             align-items: center;
             justify-content: center;
             font-family: 'Courier New', Courier, monospace;
-            color: #0f0; /* Retro Green Text */
+            color: #0f0; 
         }
         
         #screen_container {
@@ -34,7 +34,7 @@
             height: 100%;
         }
 
-        /* The Status Text (Loading Bar) */
+        /* The Status Text */
         #status {
             position: absolute;
             top: 50%;
@@ -67,81 +67,43 @@
                 statusElement.innerText = msg;
             }
 
-            updateStatus("Connecting to libraries...");
+            updateStatus("Locating system files...");
 
             var emulator = new V86({
                 screen_container: document.getElementById("screen_container"),
-                memory_size: 64 * 1024 * 1024, // Lowered to 64MB for stability
+                memory_size: 64 * 1024 * 1024, 
                 vga_memory_size: 8 * 1024 * 1024,
 
-                // We use reliable external mirrors for the BIOS files to be safe
-                bios: { url: "https://unpkg.com/v86@latest/bios/seabios.bin" },
-                vga_bios: { url: "https://unpkg.com/v86@latest/bios/vgabios.bin" },
+                // CHANGED: Pointing to YOUR local files to fix the security error
+                bios: { url: "./seabios.bin" },
+                vga_bios: { url: "./vgabios.bin" },
 
-                // Windows 95 Image
+                // Windows 95 Image (External)
                 hda: { 
                     url: "https://github.com/copy/images/raw/master/windows95.img",
                     async: true 
                 },
 
-                // Your Game ISO (Must be in your repo)
+                // Your Game ISO (Local)
                 cdrom: { 
-                    url: "entrap.iso",
+                    url: "./entrap.iso",
                     async: true
                 },
 
                 autostart: true
             });
 
-            // --- Download Progress Tracker ---
+            // --- Download Tracker ---
             var current_download = "";
             
             emulator.add_listener("download-progress", function(e) {
-                // Determine which file is downloading based on size roughly
                 if (e.file_name.includes("windows95")) current_download = "Windows 95";
                 else if (e.file_name.includes("entrap")) current_download = "Game Files";
                 else current_download = "System Files";
 
-                // Calculate percentage
                 var percent = 0;
                 if (e.total > 0) {
                     percent = Math.floor((e.loaded / e.total) * 100);
                 }
                 
-                updateStatus("Downloading " + current_download + ": " + percent + "%");
-            });
-
-            // --- Boot Handler ---
-            emulator.add_listener("emulator-ready", function() {
-                updateStatus("Download Complete. Booting Windows 95...");
-                setTimeout(function() {
-                    // Hide the status text once boot starts visually
-                    statusElement.style.display = "none";
-                }, 5000);
-            });
-
-            var booted = false;
-            emulator.add_listener("screen-set-mode", function(is_graphical) {
-                if(is_graphical && !booted) {
-                    booted = true;
-                    console.log("Graphical mode detected...");
-                    
-                    // Automation sequence
-                    setTimeout(function() {
-                        // 1. Open Run Dialog (Win95 Key combo: Ctrl+Esc, then R)
-                        emulator.keyboard_send_scancodes([0x1D, 0x01]); // Ctrl+Esc
-                        setTimeout(() => emulator.keyboard_send_scancodes([0x9D, 0x81]), 100);
-                        
-                        setTimeout(function() {
-                            emulator.keyboard_send_text("r");
-                            setTimeout(function() {
-                                emulator.keyboard_send_text("D:\\ENTRAPNT.EXE\n");
-                            }, 1000);
-                        }, 1000);
-                    }, 45000); // 45s wait for desktop
-                }
-            });
-        };
-    </script>
-</body>
-</html>
+                updateStatus("Downloading "
