@@ -101,15 +101,14 @@
                     memory_size: 64 * 1024 * 1024, 
                     vga_memory_size: 8 * 1024 * 1024,
 
-                    // LOCAL FILES (From your repo)
+                    // LOCAL FILES (Bios files must be in your repo)
                     bios: { url: "./seabios.bin" },
                     vga_bios: { url: "./vgabios.bin" },
                     cdrom: { url: "./entrap.iso", async: true },
 
-                    // EXTERNAL FILE (CDN)
-                    // We switched to JSDelivr which ALLOWS external downloading
+                    // SYSTEM DRIVE (Your Release Link)
                     hda: { 
-                        url: "https://cdn.jsdelivr.net/gh/copy/images/windows95.img",
+                        url: "https://github.com/dadwithnokids/entrap-runner/releases/download/v1.0/win95.img",
                         async: true 
                     },
 
@@ -119,8 +118,12 @@
                 // --- Download Tracker ---
                 emulator.add_listener("download-progress", function(e) {
                     var current_download = "System File";
-                    if (e.file_name.includes("windows95")) current_download = "Windows 95";
-                    else if (e.file_name.includes("entrap")) current_download = "Game ISO";
+                    // Updated to check for 'win95' since you renamed the file
+                    if (e.file_name.includes("win95") || e.file_name.includes("windows95")) {
+                        current_download = "Windows 95";
+                    } else if (e.file_name.includes("entrap")) {
+                        current_download = "Game ISO";
+                    }
                     
                     var percent = 0;
                     if (e.total > 0) percent = Math.floor((e.loaded / e.total) * 100);
